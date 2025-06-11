@@ -1,2 +1,0 @@
-machine, tag_in, tag_out, shotnumber, shotnumber_offset, CWC_Input, TC_Input, mach_specs, array_length, path, Output
-AUG, , ,12345, 12345, Overview_CWC_test.csv, Overview_TC_test.csv, specs_test.csv, 7200, , TC#:CWC
