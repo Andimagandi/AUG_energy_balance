@@ -6,6 +6,8 @@ from scipy.interpolate import interp1d
 import os
 import pickle
 from sklearn.metrics import r2_score
+import sys
+import importlib
 
 class TCclass():
     def __init__(self, shotnumber, machine, Overview_TC, machine_spec, path, array_length, tag_in, tag_out):
@@ -26,6 +28,7 @@ class TCclass():
         self.reso = machine_specs['reso'].values #starting scheme #actual time values #needed
         self.cut_scan = machine_specs['cut_scan'].values #end runs #actual time values #must be checked
         self.uncertainty = machine_specs['uncertainty_TC'].values 
+        self.material_properties = machine_specs['material_path'].values
         print('class to read in and evaluate thermocouple data is ready!')
         return    
     def read_in(self):
@@ -45,6 +48,8 @@ class TCclass():
             self.data_file[iVal]=Output[iVal][filter]             
         return
     def evaluate_data(self):  
+        sys.path.append(str(os.environ["dataPath"]))
+        material_properties = importlib.import_module(self.material_properties[0])
         self.output_TC={} 
         self.output_score = {}
         timebase_TC = self.data_file['TimeBase']
@@ -56,12 +61,7 @@ class TCclass():
             mass = float(self.OVERVIEW_TC[Signal][0])
             number = float(self.OVERVIEW_TC[Signal][1])     
             #Choosing the heat capacity      
-            if self.OVERVIEW_TC[Signal][2] == 'carbon':                 
-                c_p=c_p_carbon
-            if self.OVERVIEW_TC[Signal][2] == 'tungsten': 
-                c_p=c_p_tungsten
-            if self.OVERVIEW_TC[Signal][2] == 'steel':
-                c_p=c_p_steel  
+            c_p = getattr(material_properties, self.OVERVIEW_TC[Signal][2])
             #Cutting off the first seconds due to some annoying peaks 
             TC_data=data_signal[timebase_TC>=0.0]    
             TC_time=timebase_TC[timebase_TC>=0.0]    
@@ -111,7 +111,7 @@ class TCclass():
             t_converge = fsolve(cooling_func, t_0_guess, args=(*p_1,))    
             target_value = 0.0
             TC_time_extra = np.linspace(TC_time[0], int(t_converge), int(t_converge+1))
-            self.output_TC[Signal] = (np.abs(trapz((c_p(cooling_func(TC_time_extra,*p_1)+273.15)*mass),(cooling_func(TC_time_extra,*p_1)+273.15))))*number   
+            self.output_TC[Signal] = (np.abs(trapz((c_p(cooling_func(TC_time_extra,*p_1))*mass),(cooling_func(TC_time_extra,*p_1)))))*number   
         return          
     def output(self):
         suffix = ''
@@ -120,42 +120,3 @@ class TCclass():
         print('TCs based energy distribution is stored under %s' %(''+str(os.environ["storagePath"])+''+str(suffix)+'TC_results.p'))   
         pickle.dump(self.output_TC , open(''+str(os.environ["storagePath"])+''+str(suffix)+'TC_results.p', "wb"))
         return
-# compute heat capacity vs T
-#source:
-#http://www.metalspiping.com/typical-physical-properties-of-p92-t92-steel.html 
-#heat capacity originally defined in dimension J/(kg*K), but input for fit formula in Celsius
-def c_p_steel(temp):
-    c_p=np.array([420,420,430,450,460,470,480,500,510,530,580,600,630,640])
-    temp_ori=np.array([20,50,100,150,200,250,300,350,400,450,500,550,600,650])+273.15
-    f = interp1d(temp_ori, c_p, kind='cubic', fill_value='extrapolate')
-    TC_poly = np.polyfit(temp_ori, f(temp_ori), 4)
-    p = np.poly1d(TC_poly)
-    return p(temp)
-#source: Optimization of experimental data on the heat capacity, volume, and bulk moduli of minerals
-#required for determination fit parameters
-#values taken from table 2
-#heat capacity of tungsten at constant pressure c_p!!! 
-#heat capacity originally defined in dimension J/(kg*K), input for fit formula in Kelvin
-#output given in J/(kg*K)
-def c_p_tungsten(temp):
-    new=np.array([100,200,300,400,500,600,700,800,900,1000,1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400,3600])
-    alt=np.array([15.55,22.24,24.19,25.09,25.67,26.11,26.49,26.83,27.16, 27.48,28.14,28.87,29.74,30.80,32.05,33.52,35.18,37.03,39.06,41.26,43.68,46.35,49.39])
-    f = interp1d(new, alt*1000./183.84, kind='quadratic', fill_value='extrapolate')
-    TC_poly = np.polyfit(new,  f(new), 16)
-    p = np.poly1d(TC_poly)
-    return p(temp)
-#source: JOURNAL OF NUCLEAR MATERIALS 49 (1973/74) 45-56.0 NORTH-HOLLAND PUBLISHING COMPANY
-#THE SPECIFIC HEAT OF GRAPHITE: AN EVALUATION OF MEASUREMENTS
-#A.T.D. BUTLAND and R.J. MADDISON 
-#heat capacity of carbon at constant pressure c_p!!! 
-#values taken from table 7 'unadjusted polynomial'
-#heat capacity originally defined in dimension cal/(g*K), input for fit formula in Kelvin!
-#output given in J/(kg*K)
-def c_p_carbon(temp):
-    c_p=np.array([0.17035, 0.36786, 0.42854, 0.47727, 0.49409])*4186.8
-    temp_alt=np.array([300,700,1000,1500,1800])
-    temp_2 = np.linspace(273.15,2000,1001)
-    f = interp1d(temp_alt, c_p, kind='quadratic', fill_value='extrapolate')
-    TC_poly = np.polyfit(temp_2, f(temp_2), 10)
-    p = np.poly1d(TC_poly)
-    return p(temp)
