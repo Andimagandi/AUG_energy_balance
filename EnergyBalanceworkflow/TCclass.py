@@ -110,7 +110,7 @@ class TCclass():
                 p_1[0] = 0.0001
             t_converge = fsolve(cooling_func, t_0_guess, args=(*p_1,))    
             target_value = 0.0
-            TC_time_extra = np.linspace(TC_time[0], int(t_converge), int(t_converge+1))
+            TC_time_extra = np.linspace(TC_time[0], int(t_converge[0]), int(t_converge[0]+1))
             self.output_TC[Signal] = (np.abs(trapz((c_p(cooling_func(TC_time_extra,*p_1))*mass),(cooling_func(TC_time_extra,*p_1)))))*number   
         return          
     def output(self):
