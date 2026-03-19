@@ -121,7 +121,7 @@ class CWCclass():
                     if p_1[int(i+1)] <= 1e-5:
                         p_1[int(1+i)] = 0.0001
                 t_converge = fsolve(cooling_func, t_0_guess, args=(*p_1,))                
-                new_time_extra = np.linspace(t_0, int(t_converge), int(t_converge+1))      
+                new_time_extra = np.linspace(t_0, int(t_converge[0]), int(t_converge[0]+1))      
                 target_value = 0.0
                 #Calculating CU energy deposition and storaging in dict
                 energy_post=trapz((cooling_func(new_time_extra,*p_1)*c_v(p_TG_interp(new_time_extra))*dm_dt),new_time_extra)      
